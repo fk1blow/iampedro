@@ -25,6 +25,8 @@ import io.reactivex.Observable
 import io.reactivex.functions.Function3
 import io.reactivex.functions.BiFunction
 import org.funktionale.option.Option
+import org.funktionale.option.getOrElse
+import org.funktionale.option.orElse
 
 @Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
@@ -40,29 +42,39 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // test if it has camera and if not...
-        hasCameraHardware(this@MainActivity)
-                .flatMap { noPermissions(it) }
-                .map {
-                    requestPermissions(it, CAMERA)
-                    requestPermissions(it, READ_EXTERNAL_STORAGE)
-                    requestPermissions(it, WRITE_EXTERNAL_STORAGE)
-                }
+        val hasCamera = hasCameraHardware(this@MainActivity)
 
+        // has camera and permissions(happy path)
+        hasCamera
+            .flatMap { hasPermissions(it) }
+            .map {
+                mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK)
+                openCamera(mCamera!!)
+            }
+
+        // has camera but no permissions
+        hasCamera
+            .flatMap { hasNoPermissions(it) }
+            .map {
+                requestPermissions(it, CAMERA)
+                requestPermissions(it, READ_EXTERNAL_STORAGE)
+                requestPermissions(it, WRITE_EXTERNAL_STORAGE)
+            }
 
         // zip every permission subject
         val zipped: Observable<Boolean> = Observable.zip(
-                cameraPermission, fileWritePermission, fileReadPermission, Function3 { a, b, c -> a && b && c })
+            cameraPermission, fileWritePermission, fileReadPermission, Function3 { a, b, c -> a && b && c })
 
         // observe when all of the permissions have been granted not not
         zipped.subscribe(
             {
-                Toast.makeText(this@MainActivity, "hoooooraaaaay", 1).show()
+                mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK)
+                openCamera(mCamera!!)
             },
             {
                 Toast.makeText(this@MainActivity, "iampedro needs those permissions", 1).show()
             }
         )
-
 
         // add click listener on the main button
         val capture_picture: Button = findViewById(R.id.button_capture) as Button
@@ -108,34 +120,32 @@ class MainActivity : AppCompatActivity() {
         ActivityCompat.requestPermissions(activity, arrayOf<String>(permission), 201)
     }
 
-    private fun openCamera(camera: Camera?) {
-        if (camera != null) {
-            val cameraPreview = CameraPreview(this, camera)
-            val preview = findViewById(R.id.camera_preview) as FrameLayout
-            preview.addView(cameraPreview)
-        }
+    private fun openCamera(camera: Camera) {
+        (findViewById(R.id.camera_preview) as FrameLayout)?.addView(CameraPreview(this, camera))
     }
 
     private fun hasCameraHardware(context: Context): Option<Activity> {
-        if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA))
+        if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
             return Option.Some(context as Activity)
-        else
-            return Option.None
-    }
-
-    private fun noPermissions(activity: Activity): Option<Activity> {
-        if (checkPermissionType(activity, CAMERA)
-                && checkPermissionType(activity, READ_EXTERNAL_STORAGE)
-                && checkPermissionType(activity, WRITE_EXTERNAL_STORAGE))
-        {
-            return Option.None
         } else {
-            return Option.Some(activity)
+            return Option.None
         }
     }
 
+    private fun hasPermissions(activity: Activity) :Option<Activity>
+        = if (getHasPermissions(activity)) { Option.Some(activity) } else { Option.None }
+
+    private fun hasNoPermissions(activity: Activity): Option<Activity>
+        = if (!getHasPermissions(activity)) { Option.Some(activity) } else { Option.None }
+
+    private fun getHasPermissions(activity: Activity): Boolean {
+        return checkPermissionType(activity, CAMERA)
+            && checkPermissionType(activity, READ_EXTERNAL_STORAGE)
+            && checkPermissionType(activity, WRITE_EXTERNAL_STORAGE)
+    }
+
     private fun checkPermissionType(activity: Activity, permissionType: String)
-            = ContextCompat.checkSelfPermission(activity, permissionType) == PackageManager.PERMISSION_GRANTED
+        = ContextCompat.checkSelfPermission(activity, permissionType) == PackageManager.PERMISSION_GRANTED
 
     private fun getCameraInstance():Camera? {
         var c: Camera?
