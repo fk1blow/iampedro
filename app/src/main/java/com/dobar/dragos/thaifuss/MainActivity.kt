@@ -5,6 +5,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Camera
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CameraMetadata
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -59,6 +62,12 @@ class MainActivity : AppCompatActivity() {
                 requestPermissions(it, CAMERA)
                 requestPermissions(it, READ_EXTERNAL_STORAGE)
                 requestPermissions(it, WRITE_EXTERNAL_STORAGE)
+            }
+
+        // no camera
+        hasCamera
+            .getOrElse {
+                Toast.makeText(this@MainActivity, "cannot use iampedro without a camera...", 1).show()
             }
 
         // zip every permission subject
@@ -116,6 +125,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        mCamera?.stopPreview()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        mCamera?.stopPreview()
+    }
+
     private fun requestPermissions(activity: Activity, permission: String) {
         ActivityCompat.requestPermissions(activity, arrayOf<String>(permission), 201)
     }
@@ -125,7 +143,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasCameraHardware(context: Context): Option<Activity> {
-        if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
+        var backCameraId: String? = null
+        val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        for (cameraId in manager.cameraIdList)
+        {
+            val cameraCharacteristics = manager.getCameraCharacteristics(cameraId)
+            val facing = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING)
+            if (facing === CameraMetadata.LENS_FACING_BACK)
+            {
+                backCameraId = cameraId
+                break
+            }
+        }
+
+        if (backCameraId != null) {
             return Option.Some(context as Activity)
         } else {
             return Option.None
