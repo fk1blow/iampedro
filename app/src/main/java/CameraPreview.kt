@@ -1,4 +1,4 @@
-package com.dobar.dragos.thaifuss
+package com.dobar.dragos.thaifuss.camera.preview
 
 import android.content.ContentValues.TAG
 import android.view.SurfaceHolder
