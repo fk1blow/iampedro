@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // test if it has camera and if not...
-        val hasCamera = hasCameraHardware(this@MainActivity)
+        val hasCamera = if (hasCameraHardware() != null) Option.Some(this@MainActivity) else Option.None
 
         // has camera and permissions(happy path)
         hasCamera
@@ -53,6 +53,21 @@ class MainActivity : AppCompatActivity() {
             .map {
                 mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK)
                 openCamera(mCamera!!)
+                mCamera
+            }
+            .map { camera: Camera? ->
+                val capture_picture: Button = findViewById(R.id.button_capture) as Button
+                capture_picture.setOnClickListener {
+                    Toast.makeText(this@MainActivity, "xxxxxxxxx", 5).show()
+                    //            camera!!.takePicture(null, null, { data, camera ->
+//                var file = getOutputMediaFile(MEDIA_TYPE_IMAGE)
+//                val fos = FileOutputStream(file)
+//                fos.write(data)
+//                fos.close()
+//                // because do not want
+////                mCamera!!.startPreview()
+//            })
+                }
             }
 
         // has camera but no permissions
@@ -84,19 +99,6 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "iampedro needs those permissions", 1).show()
             }
         )
-
-        // add click listener on the main button
-        val capture_picture: Button = findViewById(R.id.button_capture) as Button
-        capture_picture.setOnClickListener {
-//            mCamera!!.takePicture(null, null, { data, camera ->
-//                var file = getOutputMediaFile(MEDIA_TYPE_IMAGE)
-//                val fos = FileOutputStream(file)
-//                fos.write(data)
-//                fos.close()
-//                // because do not want
-////                mCamera!!.startPreview()
-//            })
-        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -142,7 +144,7 @@ class MainActivity : AppCompatActivity() {
         (findViewById(R.id.camera_preview) as FrameLayout)?.addView(CameraPreview(this, camera))
     }
 
-    private fun hasCameraHardware(context: Context): Option<Activity> {
+    private fun hasCameraHardware(): String? {
         var backCameraId: String? = null
         val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
         for (cameraId in manager.cameraIdList)
@@ -155,12 +157,7 @@ class MainActivity : AppCompatActivity() {
                 break
             }
         }
-
-        if (backCameraId != null) {
-            return Option.Some(context as Activity)
-        } else {
-            return Option.None
-        }
+        return backCameraId
     }
 
     private fun hasPermissions(activity: Activity) :Option<Activity>
